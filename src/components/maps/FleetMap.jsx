@@ -104,11 +104,11 @@ const FleetMap = () => {
       <GoogleMap
         mapContainerStyle={mapContainerStyle}
         center={defaultCenter}
-        zoom={3}
+        zoom={4}
         onLoad={onLoad}
         options={{
           zoomControl: true,
-          minZoom: 3,
+          minZoom: 4,
           maxZoom: 19,
         }}
       >
