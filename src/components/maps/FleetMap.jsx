@@ -96,7 +96,7 @@ const FleetMap = () => {
   return (
     <div className="w-full h-full">
       {/* Info Panel */}
-      <div className="absolute top-14 left-2 z-10 bg-black bg-opacity-70 text-white px-3 py-2 rounded-lg text-sm space-y-1">
+      <div className="absolute top-40 left-2 z-10 bg-black bg-opacity-70 text-white px-3 py-2 rounded-lg text-sm space-y-1">
         <div>Active Vehicles: {activeTrips.length}</div>
         <div>Simulation: {formatSimulationTime()}</div>
       </div>
@@ -104,11 +104,11 @@ const FleetMap = () => {
       <GoogleMap
         mapContainerStyle={mapContainerStyle}
         center={defaultCenter}
-        zoom={2}
+        zoom={3}
         onLoad={onLoad}
         options={{
           zoomControl: true,
-          minZoom: 2,
+          minZoom: 3,
           maxZoom: 19,
         }}
       >
