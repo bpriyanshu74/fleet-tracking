@@ -19,66 +19,67 @@ export class TripSimulator {
   }
 
   initializeTrips() {
-    // Use Trip 1 start time as simulation inception
     const trip1StartTime = new Date(this.tripsData[0][0].timestamp).getTime();
-
-    // Stagger other trips: +1 hour, +2 hours, etc.
-    const hourInMs = 60 * 60 * 1000; // 1 hour in milliseconds
+    const hourInMs = 60 * 60 * 1000;
 
     this.trips = this.tripsData.map((tripData, index) => {
       const tripStartTime = trip1StartTime + index * hourInMs;
 
-      // Filter only location ping events for the path
+      // filter location pings
       const locationEvents = tripData.filter(
-        (event) =>
-          event.event_type === EVENT_TYPES.LOCATION_PING && event.location
+        (e) => e.event_type === EVENT_TYPES.LOCATION_PING && e.location
       );
 
-      // Update all event timestamps to match staggered start time
-      const originalStartTime = new Date(tripData[0].timestamp).getTime();
-      const timeOffset = tripStartTime - originalStartTime;
+      const originalStart = new Date(tripData[0].timestamp).getTime();
+      const offset = tripStartTime - originalStart;
 
-      const adjustedTripData = tripData.map((event) => ({
+      const adjustedEvents = tripData.map((event) => ({
         ...event,
         timestamp: new Date(
-          new Date(event.timestamp).getTime() + timeOffset
+          new Date(event.timestamp).getTime() + offset
         ).toISOString(),
       }));
 
       const adjustedLocationEvents = locationEvents.map((event) => ({
         ...event,
         timestamp: new Date(
-          new Date(event.timestamp).getTime() + timeOffset
+          new Date(event.timestamp).getTime() + offset
         ).toISOString(),
       }));
 
-      // Get the actual starting location from the trip data
-      const actualStartLocation = locationEvents[0]?.location || {
+      const startingLocation = locationEvents[0]?.location || {
         lat: 0,
         lng: 0,
       };
 
       return {
-        id: `trip_${index + 1}`,
+        id: tripData[0]?.trip_id || `trip_${index + 1}`,
         vehicleId: tripData[0]?.vehicle_id || `VH_00${index + 1}`,
+
         status: index === 0 ? TRIP_STATUS.IN_PROGRESS : TRIP_STATUS.UPCOMING,
-        events: adjustedTripData,
+
+        events: adjustedEvents,
         locationEvents: adjustedLocationEvents,
+
         currentEventIndex: 0,
         currentLocationIndex: 0,
+
         startTime: tripStartTime,
-        currentLocation: index === 0 ? actualStartLocation : null,
-        metrics: this.calculateInitialMetrics(tripData),
+        currentLocation: index === 0 ? startingLocation : null,
+
+        metrics: this.calculateInitialMetrics(),
         lastUpdated: Date.now(),
-        path: index === 0 ? [actualStartLocation] : [],
+
+        path: index === 0 ? [startingLocation] : [],
+
+        hasFinalized: false,
       };
     });
 
-    // Set simulation clock to Trip 1 start time (INCEPTION)
     this.simulationClock.setSimulationStartTime(trip1StartTime);
   }
 
-  calculateInitialMetrics(events) {
+  calculateInitialMetrics() {
     return {
       distanceTravelled: 0,
       fuelConsumed: 0,
@@ -95,11 +96,8 @@ export class TripSimulator {
     this.isRunning = true;
     this.initializeTrips();
 
-    // Subscribe to simulation clock updates
-    this.clockUnsubscribe = this.simulationClock.subscribe(
-      (currentSimulationTime) => {
-        this.updateTrips(currentSimulationTime);
-      }
+    this.clockUnsubscribe = this.simulationClock.subscribe((simTime) =>
+      this.updateTrips(simTime)
     );
 
     this.simulationClock.start();
@@ -107,9 +105,7 @@ export class TripSimulator {
 
   stop() {
     this.isRunning = false;
-    if (this.clockUnsubscribe) {
-      this.clockUnsubscribe();
-    }
+    if (this.clockUnsubscribe) this.clockUnsubscribe();
     this.simulationClock.stop();
   }
 
@@ -117,53 +113,48 @@ export class TripSimulator {
     let hasUpdates = false;
 
     this.trips.forEach((trip) => {
-      // Check if trip should start (based on simulation time)
+      // UPCOMING → IN_PROGRESS
       if (
         trip.status === TRIP_STATUS.UPCOMING &&
         currentSimulationTime >= trip.startTime
       ) {
         trip.status = TRIP_STATUS.IN_PROGRESS;
-        trip.currentLocation = trip.locationEvents[0]?.location || {
-          lat: 0,
-          lng: 0,
-        };
-        trip.path = [trip.currentLocation];
+        trip.currentLocation = trip.locationEvents[0]?.location || null;
+        trip.path = trip.currentLocation ? [trip.currentLocation] : [];
         hasUpdates = true;
       }
 
-      // Only process events for active trips
-      if (trip.status !== TRIP_STATUS.IN_PROGRESS) {
+      // STOP updating finalized trips
+      if (
+        trip.status === TRIP_STATUS.COMPLETED ||
+        trip.status === TRIP_STATUS.CANCELLED
+      ) {
         return;
       }
 
       let locationUpdated = false;
 
-      // Process location events for path following
+      // LOCATION PINGS
       while (
         trip.currentLocationIndex < trip.locationEvents.length &&
         new Date(
           trip.locationEvents[trip.currentLocationIndex].timestamp
         ).getTime() <= currentSimulationTime
       ) {
-        const locationEvent = trip.locationEvents[trip.currentLocationIndex];
+        const locEvent = trip.locationEvents[trip.currentLocationIndex];
 
-        // Update current location smoothly
-        trip.currentLocation = {
-          lat: locationEvent.location.lat,
-          lng: locationEvent.location.lng,
-        };
+        trip.currentLocation = { ...locEvent.location };
+        trip.path.push({ ...locEvent.location });
 
-        // Add to path
-        trip.path.push({ ...locationEvent.location });
-
-        // Update metrics
-        if (locationEvent.movement?.speed_kmh) {
-          trip.metrics.currentSpeed = locationEvent.movement.speed_kmh;
+        if (locEvent.movement?.speed_kmh) {
+          trip.metrics.currentSpeed = locEvent.movement.speed_kmh;
         }
-        if (locationEvent.distance_travelled_km !== undefined) {
-          trip.metrics.distanceTravelled = locationEvent.distance_travelled_km;
+
+        if (locEvent.distance_travelled_km !== undefined) {
+          trip.metrics.distanceTravelled = locEvent.distance_travelled_km;
         }
-        if (locationEvent.overspeed) {
+
+        if (locEvent.overspeed) {
           trip.metrics.overspeedCount++;
           trip.metrics.score = Math.max(0, trip.metrics.score - 2);
         }
@@ -173,72 +164,144 @@ export class TripSimulator {
         hasUpdates = true;
       }
 
-      // Process other event types
+      // NON LOCATION EVENTS
       while (
         trip.currentEventIndex < trip.events.length &&
         new Date(trip.events[trip.currentEventIndex].timestamp).getTime() <=
           currentSimulationTime
       ) {
         const event = trip.events[trip.currentEventIndex];
+
         if (event.event_type !== EVENT_TYPES.LOCATION_PING) {
           this.processNonLocationEvent(trip, event);
         }
+
         trip.currentEventIndex++;
       }
 
-      // Check if trip is completed
+      // AUTO-COMPLETE
       if (
+        !trip.hasFinalized &&
         trip.currentLocationIndex >= trip.locationEvents.length &&
         trip.status === TRIP_STATUS.IN_PROGRESS
       ) {
         trip.status = TRIP_STATUS.COMPLETED;
+        trip.metrics.currentSpeed = 0;
+        trip.hasFinalized = true;
         hasUpdates = true;
       }
 
       if (locationUpdated) {
-        trip.lastUpdated = Date.now();
+        const lastLoc = trip.locationEvents[trip.currentLocationIndex - 1];
+        if (lastLoc) trip.lastUpdated = lastLoc.timestamp;
       }
     });
 
-    // Force sync to keep UI responsive
     if (hasUpdates) {
       this.notify({
         type: "TRIP_SYNC",
-        trips: this.getTrips(),
+        trips: this.getTrips(currentSimulationTime),
         currentSimulationTime,
       });
     }
   }
 
   processNonLocationEvent(trip, event) {
-    if (event.event_type === EVENT_TYPES.VEHICLE_TELEMETRY && event.telemetry) {
+    // COMPLETED EVENT
+    if (event.event_type === EVENT_TYPES.TRIP_COMPLETED) {
+      trip.status = TRIP_STATUS.COMPLETED;
+      trip.hasFinalized = true;
+
+      trip.metrics.totalDistance =
+        event.total_distance_km ?? trip.metrics.distanceTravelled;
+      trip.metrics.totalDuration = event.total_duration_hours ?? 0;
       trip.metrics.fuelConsumed =
-        100 - (event.telemetry.fuel_level_percent || 0);
+        event.fuel_consumed_percent ?? trip.metrics.fuelConsumed;
+
+      trip.metrics.currentSpeed = 0;
+
+      trip.currentEventIndex = trip.events.length;
+      trip.currentLocationIndex = trip.locationEvents.length;
+      return;
+    }
+
+    // CANCELLED EVENT
+    if (event.event_type === EVENT_TYPES.TRIP_CANCELLED) {
+      trip.status = TRIP_STATUS.CANCELLED;
+      trip.hasFinalized = true;
+
+      trip.metrics.cancellationReason = event.cancellation_reason || "unknown";
+      trip.metrics.distanceCompleted = event.distance_completed_km || 0;
+      trip.metrics.elapsedTimeMinutes = event.elapsed_time_minutes || 0;
+
+      trip.metrics.currentSpeed = 0;
+
+      trip.currentEventIndex = trip.events.length;
+      trip.currentLocationIndex = trip.locationEvents.length;
+      return;
+    }
+
+    // TELEMETRY (only live)
+    if (
+      trip.status === TRIP_STATUS.IN_PROGRESS &&
+      event.event_type === EVENT_TYPES.VEHICLE_TELEMETRY &&
+      event.telemetry
+    ) {
+      const fuelLevel = event.telemetry.fuel_level_percent;
+
+      if (fuelLevel !== undefined) {
+        if (trip.metrics._initialFuelLevel === undefined) {
+          trip.metrics._initialFuelLevel = fuelLevel;
+        }
+
+        trip.metrics.fuelConsumed = trip.metrics._initialFuelLevel - fuelLevel;
+      }
     }
   }
 
-  getTrips() {
-    return this.trips.map((trip) => ({
-      ...trip,
-      currentLocation: trip.currentLocation
-        ? { ...trip.currentLocation }
-        : null,
-      metrics: { ...trip.metrics },
-      path: trip.path ? [...trip.path] : [],
-    }));
+
+  // FINAL: getTrips with countdown
+
+  getTrips(currentSimulationTime) {
+    return this.trips.map((t) => {
+      const startInSeconds =
+        t.startTime && currentSimulationTime
+          ? Math.max(
+              0,
+              Math.floor((t.startTime - currentSimulationTime) / 1000)
+            )
+          : 0;
+
+      return {
+        ...t,
+        startInSeconds,
+        currentLocation: t.currentLocation ? { ...t.currentLocation } : null,
+        metrics: { ...t.metrics },
+        path: t.path ? [...t.path] : [],
+      };
+    });
   }
 
+
+  // TripById MUST also include countdown
+
   getTripById(tripId) {
-    const trip = this.trips.find((trip) => trip.id === tripId);
-    return trip
-      ? {
-          ...trip,
-          currentLocation: trip.currentLocation
-            ? { ...trip.currentLocation }
-            : null,
-          metrics: { ...trip.metrics },
-          path: trip.path ? [...trip.path] : [],
-        }
-      : null;
+    const t = this.trips.find((x) => x.id === tripId);
+    if (!t) return null;
+
+    const currentSimTime = this.simulationClock.getCurrentSimulationTime?.();
+
+    const startInSeconds =
+      t.startTime && currentSimTime
+        ? Math.max(0, Math.floor((t.startTime - currentSimTime) / 1000))
+        : 0;
+
+    return {
+      ...t,
+      startInSeconds,
+      currentLocation: t.currentLocation ? { ...t.currentLocation } : null,
+      metrics: { ...t.metrics },
+      path: t.path ? [...t.path] : [],
+    };
   }
 }

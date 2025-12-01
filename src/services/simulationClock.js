@@ -1,66 +1,57 @@
 export class SimulationClock {
-  constructor() {
-    this.startTime = null;
-    this.simulationStartTime = null;
-    this.speedMultiplier = 50; // 50x real-time for faster demo
-    this.isRunning = false;
+  constructor(speed = 50) {
+    this.speed = speed;
     this.listeners = new Set();
+    this.isRunning = false;
+    this.simulationStartTime = null;
+    this.lastUpdateTime = null;
+    this.currentSimulationTime = null;
   }
 
-  subscribe(listener) {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+  setSpeed(speed) {
+    this.speed = speed;
   }
 
-  notify() {
-    const currentTime = this.getCurrentSimulationTime();
-    this.listeners.forEach((listener) => listener(currentTime));
+  setSimulationStartTime(realTimestamp) {
+    this.simulationStartTime = realTimestamp;
+    this.currentSimulationTime = realTimestamp;
+    this.lastUpdateTime = Date.now();
   }
 
   start() {
     if (this.isRunning) return;
-
     this.isRunning = true;
-    this.startTime = Date.now();
+    this.lastUpdateTime = Date.now();
 
-    this.tick();
+    const tick = () => {
+      if (!this.isRunning) return;
+
+      const now = Date.now();
+      const realDelta = now - this.lastUpdateTime;
+
+      const simulatedDelta = realDelta * this.speed;
+
+      this.currentSimulationTime += simulatedDelta;
+      this.lastUpdateTime = now;
+
+      this.notify(this.currentSimulationTime);
+
+      requestAnimationFrame(tick);
+    };
+
+    tick();
   }
 
   stop() {
     this.isRunning = false;
   }
 
-  setSpeed(multiplier) {
-    this.speedMultiplier = multiplier;
+  subscribe(cb) {
+    this.listeners.add(cb);
+    return () => this.listeners.delete(cb);
   }
 
-  tick = () => {
-    if (!this.isRunning) return;
-
-    this.notify();
-    requestAnimationFrame(this.tick);
-  };
-
-  getCurrentSimulationTime() {
-    if (!this.startTime || !this.simulationStartTime) {
-      return this.simulationStartTime || Date.now();
-    }
-
-    const elapsedRealTime = Date.now() - this.startTime;
-    const elapsedSimulatedTime = elapsedRealTime * this.speedMultiplier;
-    return this.simulationStartTime + elapsedSimulatedTime;
-  }
-
-  setSimulationStartTime(timestamp) {
-    this.simulationStartTime = timestamp;
-    // console.log(
-    //   "Simulation start time set to:",
-    //   new Date(timestamp).toISOString()
-    // );
-  }
-
-  // Get current simulation time as Date object
-  getCurrentSimulationDate() {
-    return new Date(this.getCurrentSimulationTime());
+  notify(time) {
+    this.listeners.forEach((cb) => cb(time));
   }
 }

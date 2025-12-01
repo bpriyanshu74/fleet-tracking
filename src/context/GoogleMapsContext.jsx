@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useRef } from "react";
 
 const GoogleMapsContext = createContext();
 
@@ -13,8 +13,13 @@ export const useGoogleMaps = () => {
 export const GoogleMapsProvider = ({ children }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadError, setLoadError] = useState(null);
+  const isInitialized = useRef(false);
 
   useEffect(() => {
+    // Only initialize once
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+
     // Check if Google Maps is already loaded
     if (window.google && window.google.maps) {
       setIsLoaded(true);
@@ -22,29 +27,46 @@ export const GoogleMapsProvider = ({ children }) => {
     }
 
     // Check if script is already being loaded
-    if (document.querySelector('script[src*="maps.googleapis.com"]')) {
-      // Script is already loading, wait for it
-      const checkLoaded = setInterval(() => {
-        if (window.google && window.google.maps) {
+    const existingScript = document.querySelector(
+      'script[src*="maps.googleapis.com"]'
+    );
+    if (existingScript) {
+      // If script exists but maps aren't loaded yet, wait for them
+      if (!window.google || !window.google.maps) {
+        // Create a proper callback that won't be cleaned up
+        const originalOnLoad = existingScript.onload;
+        existingScript.onload = () => {
+          if (originalOnLoad) originalOnLoad();
           setIsLoaded(true);
-          clearInterval(checkLoaded);
-        }
-      }, 100);
+        };
 
-      return () => clearInterval(checkLoaded);
+        existingScript.onerror = () => {
+          setLoadError(new Error("Failed to load Google Maps"));
+        };
+      } else {
+        setIsLoaded(true);
+      }
+      return;
     }
 
     // Load Google Maps script with proper async loading
     const script = document.createElement("script");
     script.src = `https://maps.googleapis.com/maps/api/js?key=${
       import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-    }&libraries=geometry&loading=async&callback=initMap`;
+    }&libraries=geometry`;
     script.async = true;
     script.defer = true;
 
-    // Define the callback function
-    window.initMap = () => {
-      setIsLoaded(true);
+    // Use both onload and callback to ensure it works
+    script.onload = () => {
+      const checkMapsReady = () => {
+        if (window.google && window.google.maps) {
+          setIsLoaded(true);
+        } else {
+          setTimeout(checkMapsReady, 100);
+        }
+      };
+      checkMapsReady();
     };
 
     script.onerror = () => {
@@ -52,13 +74,6 @@ export const GoogleMapsProvider = ({ children }) => {
     };
 
     document.head.appendChild(script);
-
-    return () => {
-      // Cleanup
-      if (window.initMap) {
-        delete window.initMap;
-      }
-    };
   }, []);
 
   const value = {

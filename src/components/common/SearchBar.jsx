@@ -34,6 +34,7 @@ const SearchBar = ({ onSearch, defaultValue = "" }) => {
             bg-sky-500 hover:bg-sky-600 text-white
             shadow-md
             transition-colors duration-200
+            cursor-pointer
           "
           aria-label="Search"
         >
