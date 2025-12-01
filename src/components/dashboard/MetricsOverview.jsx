@@ -1,7 +1,6 @@
 import { useRealTimeDataContext } from "../../context/RealTimeDataContext";
 
 const MetricIcon = ({ type }) => {
-  // simple inline SVGs so you don't need extra deps
   if (type === "trips")
     return (
       <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -50,13 +49,6 @@ const MetricsOverview = () => {
   const fleetMetrics = {
     totalTrips: trips.length,
     activeTrips: trips.filter((t) => t.status === "inprogress").length,
-    // averageScore:
-    //   trips.length > 0
-    //     ? Math.round(
-    //         trips.reduce((sum, t) => sum + (t.metrics?.score || 0), 0) /
-    //           trips.length
-    //       )
-    //     : 0,
     totalDistance: trips.reduce(
       (sum, t) => sum + (t.metrics?.distanceTravelled || 0),
       0

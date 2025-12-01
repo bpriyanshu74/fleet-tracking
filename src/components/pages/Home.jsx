@@ -11,7 +11,9 @@ const Home = () => {
 
       <div className="w-full h-[calc(100vh-64px)]">
         <ErrorBoundary>
-          <FleetMap />
+          <div className="w-full h-[calc(100vh-64px)]">
+            <FleetMap />
+          </div>
         </ErrorBoundary>
       </div>
     </div>

@@ -13,3 +13,9 @@
 .animate-fadeIn {
   animation: fadeIn 0.25s ease-out;
 }
+
+#root,
+body,
+html {
+  height: 100%;
+}
