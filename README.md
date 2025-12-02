@@ -1,16 +1,65 @@
-# React + Vite
+# Fleet Tracker
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A real-time fleet tracking dashboard built using realistic vehicle trip data.
+Visualizes live trips, vehicle movement, and operational insights across geographies using Google Maps.
 
-Currently, two official plugins are available:
+The objective is to build an interactive system that simulates real fleet behavior, enhances trip visibility, and delivers actionable analytics.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+Live URL: https://fleet-tracker1.netlify.app/
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## **Project Preview**  
+<p float="left">
+  <img src="./screenshots/GlobalView.jpg" width="300" style="margin-right:20px" />
+  <img src="./screenshots/Dashboard.jpg" width="300" style="margin-right:20px" />
+  <img src="./screenshots/TripDetail.jpg" width="250" style="margin-right:20px" />
+</p>
 
-## Expanding the ESLint configuration
+<p float="left" style="margin-top: 20px;">
+  <img src="./screenshots/FnF.jpg" width="300" style="margin-right:20px" />
+  <img src="./screenshots/MobileView.jpg" width="300"/>
+</p>
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## **Tech Stack**
+
+React + Vite
+Tailwind CSS
+Google Maps JavaScript API
+Context API
+Lucide Icons
+Netlify
+
+---
+
+## **Key Features**
+
+**Global Fleet Map**: Visualize all active vehicles worldwide with custom markers and dynamic polylines.
+
+**Real-Time Vehicle Simulation**: Live updates of vehicle movement, paths, and marker positions—auto-refreshing info windows included.
+
+**Dashboard Metrics**: 
+  - Fleet-level metrics: active vehicles, events, statuses
+  - Trip-level metrics: trip progress, movement stats, anomalies
+    
+**Trip Cards**: Each trip shows status, current position, speed, and movement insights.
+
+**Simulation Controls**: Toggle simulation speed (1x, 10x, 50x), restart simulation.
+
+**Responsive UI**: Fully adaptive layout for desktop, tablet, and mobile—optimized with a clean topbar + hamburger navigation.
+
+---
+
+# Future Scope
+
+- **Fleet Categorization**: Filtering by vehicle type, trip type, region, and fuel type.
+  
+- **Real-Time Notifications**: Alerts for trip start, completion, cancellation, or anomalies.
+  
+- **Safety & Incident Alerts**: Warnings for GPS signal loss, device failure, or potential accidents.
+
+- **Driver Fatigue Monitoring**: Driving hour limits and rest-period compliance.
+  
+- **Trip Scoring & Predictive Insights**: Scores based on overspeeding, idling, harsh braking, and fuel efficiency.
